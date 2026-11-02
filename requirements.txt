@@ -1,0 +1,8 @@
+# Tested with Python 3.11 / 3.13. CPU only, no GPU needed.
+# On a server without a display, opencv-python-headless can replace opencv-python
+# (only scripts/pick_points.py opens a window).
+numpy>=1.24,<3
+opencv-python>=4.8,<6
+scipy>=1.10
+matplotlib>=3.7
+PyYAML>=6.0

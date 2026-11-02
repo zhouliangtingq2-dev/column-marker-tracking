@@ -1,0 +1,30 @@
+# videos, frames, results and other large files never go into the repository
+demo_runs/
+runs/
+data/
+output*/
+*.mp4
+*.mov
+*.avi
+*.m4v
+*.mkv
+*.mts
+*.npy
+*.npz
+*.mat
+*.csv
+*.zip
+picked.yaml
+# python
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ipynb_checkpoints/
+# editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
