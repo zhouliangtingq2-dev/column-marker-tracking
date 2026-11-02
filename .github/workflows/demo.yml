@@ -1,0 +1,59 @@
+name: demo (synthetic video, CPU)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: demo-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest pyflakes
+      - name: Static check and unit tests
+        run: |
+          python -m pyflakes cmtrack scripts tests
+          python -m pytest -q tests
+      - name: Run the whole workflow on the synthetic video (fixed seed)
+        run: |
+          python scripts/demo.py --root demo_runs --frames 180 --seed 0
+          cat demo_runs/report/report.md
+      - name: Check the numbers in the report
+        run: |
+          python - <<'PY'
+          import re
+          rep = open("demo_runs/report/report.md", encoding="utf-8").read()
+          def val(key):
+              m = re.search(r"^\| " + key + r" \| ([^|]+) \|", rep, re.M)
+              assert m, f"{key} missing in report.md"
+              return m.group(1).strip()
+          theta, dv, disp = float(val("theta_rms_rad")), float(val("dv_rms_mm")), float(val("disp_rms_mm"))
+          theta0, disp0 = float(val("theta_rms_no_correction_rad")), float(val("disp_rms_no_correction_mm"))
+          handled, need = map(int, val("anomalies_handled").split("/"))
+          assert theta < 1.5e-4, f"theta RMS error {theta}"
+          assert dv < 0.03, f"dv RMS error {dv} mm"
+          assert disp < 0.1, f"displacement RMS error {disp} mm"
+          assert theta0 > 5 * theta and disp0 > 20 * disp, "camera correction should reduce the errors"
+          assert handled == need, f"injected anomalies handled {handled}/{need}"
+          assert val("camera_bump_absorbed") == "yes"
+          assert int(val("false_flags")) <= 2 and int(val("frames_dropped")) <= 3
+          print(f"report OK: theta {theta:.2e} rad, dv {dv:.4f} mm, displacement {disp:.4f} mm, anomalies {handled}/{need}")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: demo-report
+          path: demo_runs/report/
