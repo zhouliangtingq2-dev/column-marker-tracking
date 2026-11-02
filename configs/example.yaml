@@ -1,0 +1,81 @@
+# Example settings for a real video. Every key is optional except the ones marked "set this";
+# missing keys fall back to cmtrack/config.py:DEFAULTS. Coordinates are frame-0 image pixels
+# (x to the right, y downwards). Relative paths are resolved against the folder of this file.
+#
+#   python scripts/pick_points.py --frames <video> --what fixed   --out picked.yaml   # optional helper
+#   python scripts/run_pipeline.py --config configs/example.yaml --config picked.yaml --out runs/test1
+
+input:
+  frames: path/to/video.mp4   # set this: video file, folder of images (natural sort) or .npy stack
+  fps: 30                     # only used for image folders / .npy
+  start: 0
+  stop: null                  # e.g. 900 to stop early
+  step: 1                     # 2 = every second frame
+  rotate: 0                   # 90 / 180 / 270 clockwise if the camera was mounted sideways
+
+preprocess:
+  blur_sigma: 1.0             # Gaussian blur before matching (px)
+
+camera:
+  enabled: true
+  model: rigid                # translation (>= 1 point) | rigid (rotation + translation) | similarity (+ scale)
+  points_px:                  # set this: points on parts that do not move (stub corners, bolts ...), spread out
+    - [700, 4150]               # (all coordinates in this file are placeholders for a 3200 x 4800 frame)
+    - [2500, 4150]
+    - [800, 4400]
+    - [2400, 4400]
+  template_px: 61             # template around each fixed point (odd); larger = steadier, but must stay on fixed parts
+  search_px: 30               # expected camera shift between frames (px)
+  min_corr: 0.6
+  max_resid_px: 1.0           # a fixed point whose fit residual exceeds this is left out of that frame
+
+scale:
+  mode: affine                # rectangle | affine | homography: from the 4 corners; spacing: from the marker pitch
+  width_mm: 300               # known rectangle on the face (here: the column face)
+  height_mm: 1100
+  corners_px: {LB: [1200, 4000], LT: [1200, 1000], RB: [2020, 4000], RT: [2020, 1000]}   # set this (or use spacing)
+  spacing_mm: [100, 100]      # spacing mode only: marker pitch horizontally / vertically
+
+markers:
+  cols: 3
+  rows: 11
+  pattern_b_rows: [6, 7, 8, 9, 10, 11]   # rows (bottom = 1) with upper-left / lower-right black squares
+  marker_px: 60               # approximate printed size of one marker (2 x 2 squares) in px
+  template_px: 81             # tracking template, a bit larger than the marker (odd)
+  search_px: 20               # half window around the prediction
+  init:
+    mode: corners             # corners: click the 4 corner markers, the rest is interpolated | points: all markers
+    corners_px: {bottom_left: [1340, 3860], top_left: [1340, 1140], bottom_right: [1880, 3860], top_right: [1880, 1140]}
+    search_px: 15             # how far the clicks may be off
+    min_corr: 0.5
+
+tracking:
+  corr_accept: 0.70
+  corr_rescue: 0.50
+  rescue_scale: 3.0           # rescue window = search_px x rescue_scale
+  max_step_px: 10             # distance from the prediction (camera-corrected) that is still accepted
+  template_update: none       # none | ema (slowly adapt the template, e.g. when the surface changes)
+  frame_max_lost_ratio: 0.4   # drop the frame when more markers than this are lost
+
+cleaning:
+  min_corr: 0.85              # matches below this ZNCC are replaced by interpolation
+  hampel_window: 7            # frames; marker coordinates that jump from the running median are removed
+  hampel_k: 6.0
+  hampel_min_px: 1.5
+  frame_jump_markers: 4       # this many jumps in one frame -> the frame is dropped
+  series_window: 5            # the same for theta / dv
+  series_min_theta_rad: 0.002
+  series_min_dv_mm: 0.2
+  drop_ranges_s: []           # e.g. [[12.0, 13.5]] when something blocks the view for a while
+
+deformation:
+  theta_column: 2             # marker column used for theta (1..3) or "mean"
+  dv_column: 2
+  dv_top_rows: [10, 11]
+  dv_bottom_rows: [1, 2]
+  reference_row: 1            # displacements are also written relative to this row
+  dv_sign: elongation         # elongation positive | shortening positive
+
+output:
+  dir: ../runs/example
+  plots: true
